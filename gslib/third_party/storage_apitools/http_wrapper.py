@@ -21,7 +21,9 @@ import collections
 import httplib
 import logging
 import socket
+import sys
 import time
+import traceback
 import urlparse
 
 import httplib2
@@ -194,9 +196,17 @@ def HandleExceptionsAndRebuildHttpConnections(retry_args):
     # oauth2_client, need to handle it here.
     logging.error('Response content was invalid (%s), retrying',
                   retry_args.exc)
+    logging.error('Full traceback:\n\n\n%s\n\n', ''.join(
+      traceback.format_exception(*sys.exc_info())))
+
   elif isinstance(retry_args.exc, exceptions.RequestError):
     logging.error('Request returned no response, retrying')
   else:
+    if (isinstance(retry_args.exc, exceptions.HttpError) and
+        retry_args.exc.status_code == httplib.UNAUTHORIZED):
+      logging.error('Caught previously uncaught 401: %s', retry_args.exc)
+      logging.error('Full traceback:\n\n\n%s\n\n', ''.join(
+        traceback.format_exception(*sys.exc_info())))
     raise
   RebuildHttpConnections(retry_args.http)
   logging.error('Retrying request to url %s after exception %s',
